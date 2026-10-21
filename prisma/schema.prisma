@@ -1,0 +1,135 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id                  String               @id @default(cuid())
+  email               String               @unique
+  name                String
+  passwordHash        String
+  status              String               @default("active")
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+
+  sessions            Session[]
+  passwordResetTokens PasswordResetToken[]
+  projects            Project[]
+  tasks               Task[]
+  focusSessions       FocusSession[]
+  preferences         UserPreferences?
+
+  @@index([email])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  tokenHash    String   @unique
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt    DateTime
+  revoked      Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  lastActiveAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([tokenHash])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([tokenHash])
+}
+
+model Project {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  color       String   @default("#D5F47A")
+  status      String   @default("active") // "planning" | "active" | "on_hold" | "completed"
+  startDate   String?
+  dueDate     String?
+  spatialX    Float    @default(0)
+  spatialY    Float    @default(0)
+  spatialZ    Float    @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tasks       Task[]
+
+  @@index([userId])
+  @@index([status])
+}
+
+model Task {
+  id           String        @id @default(cuid())
+  userId       String
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projectId    String?
+  project      Project?      @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  title        String
+  description  String?
+  status       String        @default("pending") // "pending" | "completed"
+  priority     String        @default("medium") // "low" | "medium" | "high"
+  dueDate      String?
+  dueTime      String?
+  label        String?
+  completedAt  DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  focusSessions FocusSession[]
+
+  @@index([userId])
+  @@index([projectId])
+  @@index([status])
+  @@index([dueDate])
+}
+
+model FocusSession {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  taskId          String?
+  task            Task?    @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  type            String   @default("focus") // "focus" | "short_break" | "long_break"
+  durationMinutes Int
+  startedAt       DateTime @default(now())
+  completedAt     DateTime @default(now())
+  status          String   @default("completed") // "completed" | "interrupted"
+
+  @@index([userId])
+  @@index([taskId])
+  @@index([completedAt])
+}
+
+model UserPreferences {
+  id                 String   @id @default(cuid())
+  userId             String   @unique
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  theme              String   @default("dark") // "dark" | "light" | "system"
+  focusDuration      Int      @default(60) // minutes
+  shortBreakDuration Int      @default(10) // minutes
+  longBreakDuration  Int      @default(30) // minutes
+  soundEnabled       Boolean  @default(true)
+  reducedMotion      Boolean  @default(false)
+  autoStartBreaks    Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([userId])
+}
